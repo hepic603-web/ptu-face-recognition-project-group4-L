@@ -69,25 +69,16 @@ def get_db():
     return conn
 
 def encode_face(img_array):
-    try:
-        import face_recognition
-        encs = face_recognition.face_encodings(img_array)
-        return encs[0] if encs else None
-    except Exception:
-        pass
-    try:
-        import cv2
-        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-        fc = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        faces = fc.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
-        if len(faces) == 0:
-            return None
-        x, y, w, h = faces[0]
-        roi = cv2.resize(gray[y:y+h, x:x+w], (128, 128)).flatten().astype(np.float64)
-        n = np.linalg.norm(roi)
-        return roi / n if n > 0 else roi
-    except Exception:
+    import cv2
+    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+    fc = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    faces = fc.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
+    if len(faces) == 0:
         return None
+    x, y, w, h = faces[0]
+    roi = cv2.resize(gray[y:y+h, x:x+w], (128, 128)).flatten().astype(np.float64)
+    n = np.linalg.norm(roi)
+    return roi / n if n > 0 else roi
 
 def recognize(img_bytes):
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
