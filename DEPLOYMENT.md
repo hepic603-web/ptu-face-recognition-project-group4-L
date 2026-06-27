@@ -107,22 +107,22 @@ def get_db():
 
 def encode_face(img_array):
     try:
-        import face_recognition
-        encs = face_recognition.face_encodings(img_array)
-        return encs[0] if encs else None
-    except Exception:
-        try:
-            import cv2
-            gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-            fc = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-            faces = fc.detectMultiScale(gray, 1.1, 5, minSize=(30,30))
-            if len(faces) == 0: return None
-            x,y,w,h = faces[0]
-            roi = cv2.resize(gray[y:y+h, x:x+w], (128,128)).flatten().astype(np.float64)
-            n = np.linalg.norm(roi)
-            return roi/n if n > 0 else roi
-        except Exception:
+        import cv2
+        if img_array is None or img_array.size == 0:
             return None
+        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+        fc = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        if fc.empty():
+            return None
+        faces = fc.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
+        if len(faces) == 0:
+            return None
+        x, y, w, h = faces[0]
+        roi = cv2.resize(gray[y:y+h, x:x+w], (128, 128)).flatten().astype(np.float64)
+        n = np.linalg.norm(roi)
+        return roi / n if n > 0 else roi
+    except Exception:
+        return None
 
 # Sidebar navigation
 with st.sidebar:
@@ -319,7 +319,6 @@ streamlit>=1.28.0
 numpy>=1.24.0
 Pillow>=10.0.0
 opencv-python-headless>=4.8.0
-face-recognition>=1.3.0
 ```
 
 ---
@@ -353,13 +352,6 @@ Your app will be live at:
 ---
 
 ## Troubleshooting
-
-### face_recognition install fails
-```bash
-# Linux (Streamlit Cloud uses Linux):
-sudo apt-get install cmake libboost-all-dev libopenblas-dev
-pip install dlib face-recognition
-```
 
 ### SQLite on Streamlit Cloud
 Streamlit Cloud has ephemeral storage — data resets on restart.

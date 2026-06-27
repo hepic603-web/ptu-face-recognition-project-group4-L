@@ -69,39 +69,49 @@ def get_db():
     return conn
 
 def encode_face(img_array):
-    import cv2
-    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-    fc = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    faces = fc.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
-    if len(faces) == 0:
+    try:
+        import cv2
+        if img_array is None or img_array.size == 0:
+            return None
+        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+        fc = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        if fc.empty():
+            return None
+        faces = fc.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
+        if len(faces) == 0:
+            return None
+        x, y, w, h = faces[0]
+        roi = cv2.resize(gray[y:y+h, x:x+w], (128, 128)).flatten().astype(np.float64)
+        n = np.linalg.norm(roi)
+        return roi / n if n > 0 else roi
+    except Exception:
         return None
-    x, y, w, h = faces[0]
-    roi = cv2.resize(gray[y:y+h, x:x+w], (128, 128)).flatten().astype(np.float64)
-    n = np.linalg.norm(roi)
-    return roi / n if n > 0 else roi
 
 def recognize(img_bytes):
-    img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-    encoding = encode_face(np.array(img))
-    if encoding is None:
-        return None, "No face detected. Please use a clear front-facing photo."
-    db = get_db()
-    students = db.execute("SELECT * FROM students WHERE face_encodings IS NOT NULL").fetchall()
-    best, best_dist = None, 0.6
-    for s in students:
-        try:
-            stored = pickle.loads(s["face_encodings"])
-            for enc in stored:
-                dist = float(np.linalg.norm(np.array(enc) - np.array(encoding)))
-                if dist < best_dist:
-                    best_dist = dist
-                    best = dict(s)
-        except Exception:
-            continue
-    if best:
-        best["confidence"] = round((1 - best_dist) * 100, 1)
-        return best, None
-    return None, "No matching student found in the database."
+    try:
+        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        encoding = encode_face(np.array(img))
+        if encoding is None:
+            return None, "No face detected. Please use a clear front-facing photo."
+        db = get_db()
+        students = db.execute("SELECT * FROM students WHERE face_encodings IS NOT NULL").fetchall()
+        best, best_dist = None, 0.6
+        for s in students:
+            try:
+                stored = pickle.loads(s["face_encodings"])
+                for enc in stored:
+                    dist = float(np.linalg.norm(np.array(enc) - np.array(encoding)))
+                    if dist < best_dist:
+                        best_dist = dist
+                        best = dict(s)
+            except Exception:
+                continue
+        if best:
+            best["confidence"] = round((1 - best_dist) * 100, 1)
+            return best, None
+        return None, "No matching student found in the database."
+    except Exception as e:
+        return None, f"Error processing image: {str(e)}"
 
 # ── SIDEBAR ─────────────────────────────────────────────
 with st.sidebar:
